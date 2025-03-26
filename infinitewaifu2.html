@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Waifu Gallery</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CSS Start --- */
+
+        /* CSS Variables for Theming */
+        :root {
+            --bg-color: #f0f2f5;
+            --text-color: #333;
+            --header-bg: #ffffff;
+            --header-shadow: rgba(0, 0, 0, 0.1);
+            --card-bg: #e0e0e0;
+            --card-shadow: rgba(0, 0, 0, 0.15);
+            --card-hover-shadow: rgba(0, 0, 0, 0.25);
+            --accent-color: #e83e8c; /* Waifu pink */
+            --spinner-border: rgba(0, 0, 0, 0.1);
+            --status-color: #666;
+            --button-bg: var(--accent-color);
+            --button-text: #fff;
+            --lightbox-bg: rgba(0, 0, 0, 0.85);
+            --lightbox-text: #fff;
+        }
+
+        body.dark-mode {
+            --bg-color: #1a1a1d; /* Dark background */
+            --text-color: #f0f2f5; /* Light text */
+            --header-bg: #2c2f33; /* Darker header */
+            --header-shadow: rgba(0, 0, 0, 0.3);
+            --card-bg: #23272a; /* Darker card background */
+            --card-shadow: rgba(232, 62, 140, 0.1); /* Subtle pink glow */
+            --card-hover-shadow: rgba(232, 62, 140, 0.3); /* Brighter pink glow on hover */
+            --spinner-border: rgba(255, 255, 255, 0.1);
+            --status-color: #aaa;
+            --lightbox-bg: rgba(10, 10, 15, 0.9);
+        }
+
+        /* Basic Reset & Setup */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+             scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Header & Controls */
+        .controls {
+            background-color: var(--header-bg);
+            padding: 15px 30px;
+            box-shadow: 0 2px 5px var(--header-shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .controls h1 {
+            color: var(--accent-color);
+            font-weight: 700;
+            font-size: 1.8em;
+            margin: 0;
+            flex-shrink: 0;
+            cursor: default;
+            /* Subtle glow in dark mode */
+            text-shadow: 0 0 5px rgba(232, 62, 140, 0); /* Default no shadow */
+            transition: text-shadow 0.3s ease;
+        }
+        body.dark-mode .controls h1 {
+             text-shadow: 0 0 8px rgba(232, 62, 140, 0.5);
+        }
+
+
+        .settings {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95em;
+        }
+
+        .setting-item label {
+            cursor: pointer;
+            font-weight: 400;
+            user-select: none;
+            color: var(--text-color); /* Inherit themed text color */
+             transition: color 0.3s ease;
+        }
+
+        .setting-item input[type="checkbox"] {
+            cursor: pointer;
+            accent-color: var(--accent-color);
+            width: 16px;
+            height: 16px;
+            vertical-align: middle;
+        }
+
+        .status {
+            font-style: italic;
+            color: var(--status-color);
+            flex-shrink: 0;
+             transition: color 0.3s ease;
+        }
+
+        /* Gallery */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* Individual Gallery Item */
+        .waifu-item {
+            overflow: hidden;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px var(--card-shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+            background-color: var(--card-bg);
+            animation: fadeIn 0.6s ease-out forwards;
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+            position: relative;
+            cursor: pointer; /* Indicate clickable */
+        }
+
+        .waifu-item:hover {
+            transform: scale(1.05) translateY(0);
+            box-shadow: 0 8px 20px var(--card-hover-shadow);
+            z-index: 10;
+        }
+
+        .waifu-item img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            aspect-ratio: 9 / 16;
+            border-radius: 10px;
+            vertical-align: middle;
+            background-color: var(--bg-color); /* Use themed background */
+            transition: background-color 0.3s ease;
+        }
+
+
+        /* Fade-in Animation */
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Loading Indicator */
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: var(--status-color); /* Use themed status color */
+            font-size: 1.1em;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            min-height: 80px;
+            opacity: 0;
+            transition: opacity 0.3s ease, color 0.3s ease;
+            width: 100%;
+        }
+        .loading.visible {
+            opacity: 1;
+        }
+
+        /* Simple CSS Spinner */
+        .spinner {
+            border: 4px solid var(--spinner-border);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border-left-color: var(--accent-color);
+            animation: spin 1s linear infinite;
+             transition: border-color 0.3s ease;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Lightbox (Fullscreen Viewer) */
+        .lightbox {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--lightbox-bg);
+            display: flex;
+            flex-direction: column; /* Stack image and button */
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0s linear 0.3s; /* Delay visibility change */
+            padding: 15px; /* Add padding for smaller screens */
+        }
+
+        .lightbox.visible {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease, visibility 0s linear 0s;
+        }
+
+        .lightbox-content {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 95%;
+            max-height: 95%;
+        }
+
+
+        #lightbox-img {
+            display: block; /* Remove extra space below image */
+            max-width: 100%; /* Fit within content area */
+            max-height: 85vh; /* Limit height, leave space for button */
+            object-fit: contain;
+            border-radius: 5px;
+            margin-bottom: 15px; /* Space between image and button */
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: -10px; /* Position relative to content box */
+            right: -5px;
+            font-size: 35px;
+            font-weight: bold;
+            color: var(--lightbox-text);
+            cursor: pointer;
+            line-height: 1;
+            padding: 5px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            z-index: 2010; /* Above image */
+             transition: color 0.2s ease;
+        }
+        .lightbox-close:hover {
+            color: var(--accent-color);
+        }
+
+        .lightbox-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+            border: none; /* Reset default anchor border */
+             cursor: pointer;
+        }
+
+        .lightbox-button:hover {
+            background-color: #c43175; /* Darker pink */
+            transform: scale(1.05);
+        }
+         .lightbox-button:active {
+             transform: scale(1.0);
+         }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .controls {
+                padding: 15px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .controls h1 { font-size: 1.5em; margin-bottom: 10px; }
+            .settings { width: 100%; justify-content: flex-start; gap: 15px; }
+            .gallery { padding: 15px; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+            .waifu-item img { aspect-ratio: 3 / 4; }
+
+             /* Adjust lightbox close button position on mobile */
+            .lightbox-close {
+                top: 5px;
+                right: 10px;
+                font-size: 28px;
+            }
+             #lightbox-img {
+                 max-height: 80vh; /* Slightly less height on mobile */
+             }
+        }
+
+        @media (max-width: 480px) {
+             .gallery { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+             .setting-item { font-size: 0.9em; }
+             .controls h1 { font-size: 1.3em; }
+             .controls { padding-left: 15px; padding-right: 15px; }
+             .lightbox-button { font-size: 0.9em; padding: 8px 16px; }
+        }
+
+        /* --- CSS End --- */
+    </style>
+</head>
+<body>
+    <header class="controls">
+        <h1>Infinite Waifu Gallery</h1>
+        <div class="settings">
+            <div class="setting-item">
+                <label for="nsfw-toggle">Enable NSFW (18+ Only):</label>
+                <input type="checkbox" id="nsfw-toggle">
+            </div>
+            <div class="setting-item">
+                <label for="autoscroll-toggle">Auto Scroll:</label>
+                <input type="checkbox" id="autoscroll-toggle">
+            </div>
+            <!-- Night Mode Toggle -->
+            <div class="setting-item">
+                <label for="nightmode-toggle">Night Mode:</label>
+                <input type="checkbox" id="nightmode-toggle">
+            </div>
+            <div class="setting-item status" id="status-indicator">
+                Status: Initializing...
+            </div>
+        </div>
+    </header>
+
+    <main id="waifu-gallery" class="gallery">
+        <!-- Waifu images will be loaded here by JavaScript -->
+    </main>
+
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="loading">
+        <div class="spinner"></div>
+        Loading more waifus...
+    </div>
+
+    <!-- Lightbox Structure (Initially Hidden) -->
+    <div id="lightbox" class="lightbox"> <!-- Removed 'hidden' class, control via JS -->
+        <div class="lightbox-content">
+            <span id="lightbox-close" class="lightbox-close">×</span>
+            <img id="lightbox-img" src="" alt="Full size waifu">
+            <a id="lightbox-download" href="#" download="waifu.jpg" class="lightbox-button">Download</a>
+        </div>
+    </div>
+    <script>
+        // --- JavaScript Start ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Element References ---
+            const gallery = document.getElementById('waifu-gallery');
+            const nsfwToggle = document.getElementById('nsfw-toggle');
+            const autoscrollToggle = document.getElementById('autoscroll-toggle'); // HTML should default to unchecked
+            const nightmodeToggle = document.getElementById('nightmode-toggle');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const statusIndicator = document.getElementById('status-indicator');
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            const lightboxClose = document.getElementById('lightbox-close');
+            const lightboxDownload = document.getElementById('lightbox-download');
+            const body = document.body;
+
+            // --- State Variables ---
+            let isNsfwEnabled = false;
+            // Initialize based on the checkbox state (should be 'false' initially if HTML is correct)
+            let isAutoScrollEnabled = autoscrollToggle.checked;
+            let isLoading = false;
+            let currentEndpointType = 'sfw';
+            const BATCH_SIZE = 15;
+            const INITIAL_BATCH_SIZE = 25;
+            const NIGHT_MODE_STORAGE_KEY = 'waifuGalleryNightMode';
+
+            // --- API Fetching Logic ---
+            async function fetchWaifus(count = BATCH_SIZE) {
+                if (isLoading) {
+                    console.log("Fetch skipped: Already loading.");
+                    return;
+                }
+                isLoading = true;
+                updateStatus('Loading...');
+                loadingIndicator.classList.add('visible');
+                const apiUrl = `https://api.waifu.pics/many/${currentEndpointType}/waifu`;
+                console.log(`Fetching ${count} images from: ${apiUrl}`);
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ exclude: [] })
+                    });
+
+                    if (!response.ok) {
+                        let errorBody = `Server responded with status ${response.status}.`;
+                        try {
+                            const errorData = await response.json();
+                            errorBody = errorData.message || JSON.stringify(errorData);
+                        } catch (e) { /* Ignore if response body isn't JSON */ }
+                        throw new Error(`API Error: ${errorBody}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (data.files && Array.isArray(data.files) && data.files.length > 0) {
+                        displayWaifus(data.files);
+                        updateStatus('Idle');
+                    } else {
+                        updateStatus('No more images found or invalid response.');
+                        console.warn("API returned no files or unexpected format:", data);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch or process waifus:', error);
+                    updateStatus(`Error: ${error.message}`);
+                    // Keep the loading indicator visible for a moment on error
+                    setTimeout(() => {
+                        if (!isLoading) {
+                            loadingIndicator.classList.remove('visible');
+                        }
+                    }, 2500);
+                } finally {
+                    isLoading = false;
+                    // Use rAF to prevent hiding indicator if another load starts immediately
+                    requestAnimationFrame(() => {
+                        if (!isLoading) {
+                            loadingIndicator.classList.remove('visible');
+                        }
+                    });
+                }
+            }
+
+            // --- Image Display Logic (Updated scroll behavior) ---
+            function displayWaifus(imageUrls) {
+                const fragment = document.createDocumentFragment();
+                let addedImagesCount = 0;
+                let lastAddedElement = null;
+
+                imageUrls.forEach(url => {
+                    if (gallery.querySelector(`img[src="${url}"]`)) {
+                        console.warn(`Skipping duplicate image URL: ${url}`);
+                        return;
+                    }
+                    const waifuItem = document.createElement('div');
+                    waifuItem.className = 'waifu-item';
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = `${currentEndpointType === 'nsfw' ? 'NSFW ' : ''}Waifu Image`;
+                    img.loading = 'lazy';
+                    img.onerror = () => {
+                        console.warn(`Failed to load image: ${url}`);
+                        waifuItem.remove();
+                    };
+                    waifuItem.appendChild(img);
+                    fragment.appendChild(waifuItem);
+                    addedImagesCount++;
+                    lastAddedElement = waifuItem;
+                });
+
+                gallery.appendChild(fragment);
+                console.log(`Added ${addedImagesCount} images. AutoScroll Enabled State: ${isAutoScrollEnabled}`);
+
+                // --- Auto Scrolling Check (Uses 'auto' behavior) ---
+                if (isAutoScrollEnabled && lastAddedElement) {
+                    console.log("Auto-scrolling to last element...");
+                    // Use 'auto' for instantaneous scroll, preventing lingering smooth scroll animations
+                    lastAddedElement.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+                }
+            }
+
+            // --- Status Indicator Update ---
+            function updateStatus(message) {
+                if (statusIndicator) {
+                    statusIndicator.textContent = `Status: ${message}`;
+                }
+            }
+
+            // --- Clear Gallery ---
+            function clearGallery() {
+                gallery.innerHTML = '';
+                updateStatus('Gallery Cleared.');
+                console.log('Gallery cleared.');
+            }
+
+            // --- Night Mode Logic ---
+            function applyNightMode(isNight) {
+                if (isNight) {
+                    body.classList.add('dark-mode');
+                    localStorage.setItem(NIGHT_MODE_STORAGE_KEY, 'true');
+                    console.log("Night Mode enabled.");
+                } else {
+                    body.classList.remove('dark-mode');
+                    localStorage.setItem(NIGHT_MODE_STORAGE_KEY, 'false');
+                    console.log("Night Mode disabled.");
+                }
+            }
+
+            function loadNightModePreference() {
+                const savedPreference = localStorage.getItem(NIGHT_MODE_STORAGE_KEY);
+                // Check OS preference as a fallback
+                const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                let initialNightMode = false;
+
+                if (savedPreference !== null) {
+                    initialNightMode = savedPreference === 'true'; // Use saved preference if available
+                } else {
+                    initialNightMode = prefersDarkScheme; // Otherwise, use OS preference
+                }
+
+                nightmodeToggle.checked = initialNightMode; // Sync checkbox
+                applyNightMode(initialNightMode); // Apply the theme
+                console.log(`Initial Night Mode set to: ${initialNightMode} (Saved: ${savedPreference}, OS Prefers Dark: ${prefersDarkScheme})`);
+            }
+
+            // --- Lightbox Logic ---
+            function showLightbox(imageUrl) {
+                console.log("Showing lightbox for:", imageUrl);
+                lightboxImg.src = imageUrl;
+                lightboxDownload.href = imageUrl;
+
+                // Attempt to generate a decent filename for download
+                try {
+                    const urlParts = imageUrl.split('/');
+                    const filename = urlParts[urlParts.length - 1].split('?')[0]; // Get last part, remove query string
+                    lightboxDownload.download = filename || 'waifu.jpg'; // Use parsed name or default
+                } catch (e) {
+                    console.warn("Could not parse filename, using default.", e);
+                    lightboxDownload.download = 'waifu.jpg';
+                }
+
+                lightbox.classList.add('visible');
+                body.style.overflow = 'hidden'; // Prevent background scroll
+            }
+
+            function hideLightbox() {
+                console.log("Hiding lightbox");
+                lightbox.classList.remove('visible');
+                lightboxImg.src = ""; // Clear image to prevent flash of old content
+                lightboxDownload.href = "#";
+                lightboxDownload.download = "waifu.jpg";
+                body.style.overflow = ''; // Restore background scroll
+            }
+
+            // --- Infinite Scrolling Setup (Intersection Observer) ---
+            const observerOptions = {
+                root: null, // Viewport
+                rootMargin: '0px 0px 300px 0px', // Trigger 300px before bottom
+                threshold: 0.01 // Trigger very early
+            };
+
+            const intersectionCallback = (entries) => {
+                const entry = entries[0];
+                if (entry.isIntersecting && !isLoading) {
+                    console.log('Intersection Observer triggered: Loading more images.');
+                    fetchWaifus(); // Fetch next batch
+                }
+            };
+
+            const observer = new IntersectionObserver(intersectionCallback, observerOptions);
+            if (loadingIndicator) {
+                observer.observe(loadingIndicator);
+            } else {
+                console.error("Loading indicator element not found. Infinite scroll disabled.");
+            }
+
+            // --- Event Listeners Setup ---
+
+            // NSFW Toggle
+            nsfwToggle.addEventListener('change', () => {
+                const wantsNsfw = nsfwToggle.checked;
+                if (wantsNsfw) {
+                    const confirmationMessage = "⚠️ ARE YOU 18 OR OLDER? ⚠️\n\nClicking 'OK' confirms you are 18+ and legally allowed to view Not Safe For Work (NSFW) content in your jurisdiction.\n\nThis will clear the current gallery and load potentially explicit images.";
+                    if (!confirm(confirmationMessage)) {
+                        nsfwToggle.checked = false; console.log("NSFW mode cancelled by user."); return;
+                    }
+                    isNsfwEnabled = true; currentEndpointType = 'nsfw'; console.log("NSFW mode enabled.");
+                } else {
+                    isNsfwEnabled = false; currentEndpointType = 'sfw'; console.log("NSFW mode disabled, switching to SFW.");
+                }
+                clearGallery();
+                updateStatus(`Switched to ${currentEndpointType.toUpperCase()} mode. Loading...`);
+                fetchWaifus(INITIAL_BATCH_SIZE);
+                window.scrollTo({ top: 0, behavior: 'smooth' }); // Go to top after mode switch
+            });
+
+            // Auto Scroll Toggle Listener
+            autoscrollToggle.addEventListener('change', () => {
+                isAutoScrollEnabled = autoscrollToggle.checked; // Update state based on checkbox change
+                console.log(`Auto Scroll toggled via checkbox. Now: ${isAutoScrollEnabled}.`);
+                updateStatus(`Auto Scroll ${isAutoScrollEnabled ? 'On' : 'Off'}`);
+                // Optional: Reset status message after a delay
+                setTimeout(() => { if (!isLoading) updateStatus('Idle'); }, 1500);
+            });
+
+            // Night Mode Toggle Listener
+            nightmodeToggle.addEventListener('change', () => {
+                applyNightMode(nightmodeToggle.checked);
+                // Optional: Update status briefly
+                // updateStatus(`Night Mode ${nightmodeToggle.checked ? 'On' : 'Off'}`);
+                // setTimeout(() => { if (!isLoading) updateStatus('Idle'); }, 1500);
+            });
+
+            // Gallery Click Listener (for Lightbox) using Event Delegation
+            gallery.addEventListener('click', (event) => {
+                // Find the closest parent '.waifu-item' and then its 'img'
+                const imageElement = event.target.closest('.waifu-item img');
+                if (imageElement) {
+                    event.preventDefault(); // Just in case
+                    showLightbox(imageElement.src);
+                }
+            });
+
+            // Lightbox Close Button Listener
+            lightboxClose.addEventListener('click', hideLightbox);
+
+            // Lightbox Background Click Listener (to close)
+            lightbox.addEventListener('click', (event) => {
+                if (event.target === lightbox) { // Only if click is directly on the background
+                    hideLightbox();
+                }
+            });
+
+            // Keyboard Listener (Escape key for Lightbox)
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && lightbox.classList.contains('visible')) {
+                    hideLightbox();
+                }
+            });
+
+            // --- Initial Application Load ---
+            function initializeGallery() {
+                console.log("Initializing gallery...");
+                // Set initial states based on default HTML element states
+                isNsfwEnabled = nsfwToggle.checked;
+                currentEndpointType = isNsfwEnabled ? 'nsfw' : 'sfw';
+                isAutoScrollEnabled = autoscrollToggle.checked; // Will be 'false' if HTML default is unchecked
+
+                console.log(`Initial AutoScroll State (from checkbox): ${isAutoScrollEnabled}`); // Verify initial state
+
+                loadNightModePreference(); // Load saved theme preference or use OS setting
+
+                updateStatus('Fetching initial images...');
+                fetchWaifus(INITIAL_BATCH_SIZE); // Fetch first batch of images
+            }
+
+            // Run the initialization function
+            initializeGallery();
+
+        }); // End of DOMContentLoaded event listener
+
+        // --- JavaScript End ---
+    </script>
+
+</body>
+</html>
