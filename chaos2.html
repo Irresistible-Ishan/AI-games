@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elastic Gravity Chaos</title>
+    <style>
+        /* Basic Reset & Styling */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0b132b, #1c2541, #3a506b); /* Deeper blue gradient */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #6fffe9; /* Cyan accent color */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        #simulationContainer {
+            position: relative;
+            margin-bottom: 20px;
+            /* Set initial size, JS will adjust */
+            width: 90vmin;
+            height: 90vmin;
+            max-width: 700px;
+            max-height: 700px;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 50%; /* Make the canvas visually appear circular */
+            box-shadow: 0 0 30px rgba(111, 255, 233, 0.4); /* Cyan glow */
+             /* The actual boundary is drawn in JS */
+             width: 100%;
+             height: 100%;
+             background-color: rgba(0,0,0,0.1); /* Slightly visible background */
+        }
+
+        #controls {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            gap: 12px; /* Slightly reduced gap */
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #controls label {
+            font-weight: bold;
+            margin-right: 5px;
+            white-space: nowrap; /* Prevent labels from wrapping */
+        }
+
+        #controls input[type="number"],
+        #controls select {
+            padding: 8px 10px;
+            border: 1px solid #6fffe9;
+            background-color: #1c2541;
+            color: #fff;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            margin-right: 8px;
+        }
+         #controls input[type="number"] {
+             width: 60px;
+             text-align: center;
+         }
+         #controls select {
+             cursor: pointer;
+         }
+
+        #controls button {
+            padding: 9px 18px; /* Slightly smaller buttons */
+            border: none;
+            border-radius: 5px;
+            background-color: #5bc0be; /* Teal button color */
+            color: #0b132b; /* Dark text on button */
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        #controls button:hover {
+            background-color: #3a7e7d;
+        }
+         #controls button:active {
+             transform: scale(0.97);
+         }
+         #controls button:disabled {
+             background-color: #888;
+             color: #ccc;
+             cursor: not-allowed;
+         }
+
+         /* Input number spinner buttons */
+         input[type=number]::-webkit-inner-spin-button,
+         input[type=number]::-webkit-outer-spin-button {
+           opacity: 1;
+         }
+
+         /* Responsive adjustments */
+        @media (max-width: 700px) { /* Adjusted breakpoint */
+             #simulationContainer {
+                 width: 95vmin;
+                 height: 95vmin;
+             }
+             #controls {
+                 flex-direction: column;
+                 align-items: stretch; /* Make controls fill width */
+                 padding: 10px;
+                 gap: 8px;
+             }
+             #controls div { /* Group label and input/select */
+                 display: flex;
+                 justify-content: space-between; /* Space out label and control */
+                 align-items: center;
+                 width: 100%;
+             }
+              #controls div label {
+                  flex-shrink: 0; /* Prevent label from shrinking */
+                  margin-right: 10px;
+              }
+             #controls input[type="number"],
+             #controls select {
+                 flex-grow: 1; /* Allow input/select to grow */
+                 margin-right: 0;
+             }
+             #controls button {
+                 width: 100%;
+                 text-align: center;
+             }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="simulationContainer">
+        <canvas id="chaosCanvas"></canvas>
+    </div>
+
+    <div id="controls">
+        <div>
+            <label for="ballCount">Balls:</label>
+            <input type="number" id="ballCount" value="25" min="1" max="150"> <!-- Reduced default/max -->
+        </div>
+        <div>
+             <label for="gravitySelector">Gravity:</label>
+             <select id="gravitySelector">
+                 <!-- Options added by JS -->
+             </select>
+        </div>
+        <button id="pauseResumeButton">Pause</button>
+        <button id="restartButton">Restart</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('chaosCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('simulationContainer');
+
+        const ballCountInput = document.getElementById('ballCount');
+        const pauseResumeButton = document.getElementById('pauseResumeButton');
+        const restartButton = document.getElementById('restartButton');
+        const gravitySelector = document.getElementById('gravitySelector');
+
+        let balls = [];
+        let animationId;
+        let isPaused = false;
+        let boundaryRadius;
+        let boundaryCenterX;
+        let boundaryCenterY;
+        let currentGravity = 0.1; // Default starting gravity
+
+        // Scaled gravity values (relative simulation units, not m/s^2)
+        // Base value chosen for reasonable simulation speed
+        const BASE_GRAVITY_UNIT = 0.1;
+        const gravityOptions = {
+             "Zero": 0.0,
+             "Moon (0.165g)": BASE_GRAVITY_UNIT * 0.165,
+             "Mars (0.38g)": BASE_GRAVITY_UNIT * 0.38,
+             "Earth (1g)": BASE_GRAVITY_UNIT * 1.0,
+             "Jupiter (2.53g)": BASE_GRAVITY_UNIT * 2.53,
+             "Sun (27.9g)": BASE_GRAVITY_UNIT * 5.0, // Capped for simulation stability
+             "Neutron Star": BASE_GRAVITY_UNIT * 15.0 // High value for fun
+        };
+        const DEFAULT_GRAVITY_KEY = "Earth (1g)";
+
+        const INITIAL_DEFLECTION = 0.3; // Reduced initial horizontal spread
+        const MIN_RADIUS = 6;
+        const MAX_RADIUS = 14;
+        const TRAIL_LENGTH = 10; // Shorter trail
+
+        // Color palette
+        const colors = [ // Using the previous palette, good contrast
+            '#FF6B6B', '#FFD166', '#06D6A0', '#118AB2', '#073B4C',
+            '#EF476F', '#FFC43D', '#1B9AAA', '#5A189A', '#F72585',
+            '#7209B7', '#3A0CA3', '#4361EE', '#4CC9F0', '#F9C74F',
+            '#F9844A', '#F8961E', '#F3722C', '#90BE6D', '#43AA8B',
+            '#577590', '#277DA1'
+        ];
+
+        // Ball Class
+        function Ball(x, y, radius, color) {
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+            this.color = color;
+            this.vx = (Math.random() - 0.5) * 2 * INITIAL_DEFLECTION;
+            this.vy = Math.random() * 0.5; // Smaller initial downward velocity
+            this.mass = Math.PI * radius * radius;
+            this.trail = [];
+        }
+
+        Ball.prototype.update = function(deltaTime) {
+            // Store previous position for trail
+            this.trail.push({ x: this.x, y: this.y });
+            if (this.trail.length > TRAIL_LENGTH) {
+                this.trail.shift();
+            }
+
+            if (!isPaused) {
+                // Apply **CONTINUOUS** Gravity
+                this.vy += currentGravity * deltaTime; // Gravity always pulls down
+
+                // Update position
+                this.x += this.vx * deltaTime;
+                this.y += this.vy * deltaTime;
+
+                 // No Damping applied here anymore
+            }
+        };
+
+        Ball.prototype.draw = function() {
+             // Draw Trail
+             ctx.save();
+             for (let i = 0; i < this.trail.length; i++) {
+                 const point = this.trail[i];
+                 const alpha = (i / this.trail.length) * 0.4; // Trail opacity
+                 ctx.beginPath();
+                 ctx.arc(point.x, point.y, this.radius * (i / this.trail.length) * 0.8, 0, Math.PI * 2); // Smaller trail radius
+                 ctx.fillStyle = `rgba(${hexToRgb(this.color)}, ${alpha})`;
+                 ctx.fill();
+             }
+              ctx.restore();
+
+            // Draw Ball
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+             ctx.shadowColor = this.color;
+             ctx.shadowBlur = 6; // Reduced blur
+            ctx.fill();
+             ctx.shadowBlur = 0; // Reset shadow
+        };
+
+        Ball.prototype.checkBoundaryCollision = function() {
+            const dx = this.x - boundaryCenterX;
+            const dy = this.y - boundaryCenterY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance + this.radius > boundaryRadius) {
+                const normX = dx / distance;
+                const normY = dy / distance;
+
+                // Reflect velocity (perfectly elastic - no energy loss factor)
+                const dotProduct = this.vx * normX + this.vy * normY;
+                this.vx = (this.vx - 2 * dotProduct * normX); // No COLLISION_DAMPING
+                this.vy = (this.vy - 2 * dotProduct * normY); // No COLLISION_DAMPING
+
+                // Adjust position to prevent sticking
+                const overlap = distance + this.radius - boundaryRadius;
+                this.x -= normX * (overlap + 0.1); // Minimal adjustment
+                this.y -= normY * (overlap + 0.1);
+            }
+        };
+
+        // Utility to convert hex color
+        function hexToRgb(hex) {
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 255, 255';
+        }
+
+
+        // Perfectly Elastic Collision between two balls
+        function handleBallCollision(ball1, ball2) {
+            const dx = ball2.x - ball1.x;
+            const dy = ball2.y - ball1.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const minDistance = ball1.radius + ball2.radius;
+
+            if (distance < minDistance && distance > 0) { // Add distance > 0 check
+                 const overlap = minDistance - distance;
+                 const adjustX = (dx / distance) * overlap * 0.51; // Slightly more than half to ensure separation
+                 const adjustY = (dy / distance) * overlap * 0.51;
+
+                 ball1.x -= adjustX;
+                 ball1.y -= adjustY;
+                 ball2.x += adjustX;
+                 ball2.y += adjustY;
+
+                 const nx = dx / distance;
+                 const ny = dy / distance;
+                 const tx = -ny;
+                 const ty = nx;
+
+                 const dpTan1 = ball1.vx * tx + ball1.vy * ty;
+                 const dpTan2 = ball2.vx * tx + ball2.vy * ty;
+                 const dpNorm1 = ball1.vx * nx + ball1.vy * ny;
+                 const dpNorm2 = ball2.vx * nx + ball2.vy * ny;
+
+                 // Conservation of momentum (perfectly elastic)
+                 const m1 = (dpNorm1 * (ball1.mass - ball2.mass) + 2 * ball2.mass * dpNorm2) / (ball1.mass + ball2.mass);
+                 const m2 = (dpNorm2 * (ball2.mass - ball1.mass) + 2 * ball1.mass * dpNorm1) / (ball1.mass + ball2.mass);
+
+                 // Update velocities (No COLLISION_DAMPING)
+                  ball1.vx = tx * dpTan1 + nx * m1;
+                  ball1.vy = ty * dpTan1 + ny * m1;
+                  ball2.vx = tx * dpTan2 + nx * m2;
+                  ball2.vy = ty * dpTan2 + ny * m2;
+            }
+        }
+
+        // --- Populate Gravity Selector ---
+        function populateGravitySelector() {
+             Object.keys(gravityOptions).forEach(key => {
+                 const option = document.createElement('option');
+                 option.value = gravityOptions[key]; // Store the numeric value
+                 option.textContent = key; // Display the name
+                 gravitySelector.appendChild(option);
+             });
+              // Set default selection
+              gravitySelector.value = gravityOptions[DEFAULT_GRAVITY_KEY];
+              currentGravity = parseFloat(gravitySelector.value); // Initialize currentGravity
+        }
+
+
+        function setup() {
+            // Adjust canvas size
+            const containerSize = Math.min(container.offsetWidth, container.offsetHeight);
+            canvas.width = containerSize;
+            canvas.height = containerSize;
+
+            boundaryRadius = canvas.width / 2 * 0.98; // Slightly larger boundary
+            boundaryCenterX = canvas.width / 2;
+            boundaryCenterY = canvas.height / 2;
+
+            // Update current gravity from selector
+            currentGravity = parseFloat(gravitySelector.value);
+            console.log("Setting up with gravity:", currentGravity);
+
+
+            balls = []; // Clear existing balls
+            const count = parseInt(ballCountInput.value) || 25;
+             ballCountInput.value = count; // Ensure input reflects actual count
+
+            for (let i = 0; i < count; i++) {
+                const radius = Math.random() * (MAX_RADIUS - MIN_RADIUS) + MIN_RADIUS;
+                // Start higher and more spread
+                const startAngle = Math.random() * Math.PI * 0.6 + Math.PI * 0.2; // Angle from top center
+                const startDist = Math.random() * boundaryRadius * 0.4; // Distance from center
+                const startX = boundaryCenterX + Math.cos(startAngle) * startDist;
+                const startY = boundaryCenterY - Math.sin(startAngle) * startDist - boundaryRadius * 0.5; // Start near top edge
+                const color = colors[i % colors.length];
+
+                 // Prevent balls spawning exactly on top of each other initially (basic check)
+                 let validPosition = false;
+                 let attempts = 0;
+                 let tempBall = new Ball(startX, startY, radius, color);
+                 while (!validPosition && attempts < 50) {
+                     validPosition = true;
+                     for(let j=0; j < balls.length; j++) {
+                         const dx = balls[j].x - tempBall.x;
+                         const dy = balls[j].y - tempBall.y;
+                         const dist = Math.sqrt(dx*dx + dy*dy);
+                         if (dist < balls[j].radius + tempBall.radius) {
+                              validPosition = false;
+                              // Try slightly different spot
+                              tempBall.x = boundaryCenterX + (Math.random() - 0.5) * boundaryRadius * 0.4;
+                              tempBall.y = boundaryCenterY - boundaryRadius * 0.7 + Math.random() * 40;
+                              attempts++;
+                              break;
+                         }
+                     }
+                 }
+
+                balls.push(tempBall);
+            }
+
+            isPaused = false;
+            pauseResumeButton.textContent = "Pause";
+            pauseResumeButton.disabled = false;
+
+            if (animationId) cancelAnimationFrame(animationId);
+             lastTimestamp = performance.now(); // Reset timestamp before starting loop
+             animate(lastTimestamp);
+        }
+
+        let lastTimestamp = 0;
+        function animate(timestamp) {
+             const rawDeltaTime = timestamp - lastTimestamp;
+             // Clamp deltaTime to prevent huge jumps if tab was inactive
+             const cappedDeltaTime = Math.min(rawDeltaTime, 50); // Max step ~3 frames @ 60fps
+             const deltaTime = !isPaused ? cappedDeltaTime / 16.67 : 0; // Normalize (or 0 if paused)
+
+             lastTimestamp = timestamp;
+
+            // Clear canvas
+            ctx.fillStyle = 'rgba(11, 19, 43, 0.3)'; // Slightly darker transparent background
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw boundary
+             ctx.strokeStyle = 'rgba(111, 255, 233, 0.35)';
+             ctx.lineWidth = 1.5;
+             ctx.beginPath();
+             ctx.arc(boundaryCenterX, boundaryCenterY, boundaryRadius, 0, Math.PI * 2);
+             ctx.stroke();
+
+            // Update, check collisions, draw
+            balls.forEach(ball => {
+                 ball.update(deltaTime);
+                 ball.checkBoundaryCollision(); // Check boundary first
+                 ball.draw();
+            });
+
+            // Check ball-to-ball collisions
+             if (!isPaused) {
+                for (let i = 0; i < balls.length; i++) {
+                    for (let j = i + 1; j < balls.length; j++) {
+                        handleBallCollision(balls[i], balls[j]);
+                    }
+                }
+             }
+
+            // Request next frame
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            pauseResumeButton.textContent = isPaused ? "Resume" : "Pause";
+             if (!isPaused) {
+                 lastTimestamp = performance.now(); // Reset timestamp on resume
+                 if (!animationId) animate(lastTimestamp); // Restart loop if needed
+             }
+        }
+
+        function handleGravityChange() {
+             currentGravity = parseFloat(gravitySelector.value);
+             console.log("Gravity changed to:", currentGravity);
+             // Gravity changes immediately, no restart needed unless desired
+        }
+
+
+        // --- Event Listeners ---
+        pauseResumeButton.addEventListener('click', togglePause);
+        restartButton.addEventListener('click', setup);
+        ballCountInput.addEventListener('change', setup);
+        gravitySelector.addEventListener('change', handleGravityChange);
+
+         // Handle window resizing
+         let resizeTimeout;
+         window.addEventListener('resize', () => {
+              clearTimeout(resizeTimeout);
+              resizeTimeout = setTimeout(() => {
+                  console.log("Resizing canvas and restarting...");
+                  setup();
+              }, 250);
+         });
+
+
+        // --- Initial Setup ---
+        populateGravitySelector(); // Populate dropdown first
+        setup(); // Then run initial setup
+
+    </script>
+</body>
+</html>
