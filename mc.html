@@ -1,0 +1,323 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TNT Sandbox</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+            font-family: sans-serif;
+            background-color: #1a1a1a; /* Dark base */
+        }
+
+        #sandbox {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #3d2d1b; /* Dark earth/cave background */
+            overflow: hidden; /* Keep TNT and particles contained */
+            transition: background-color 0.8s ease-in-out, background-image 0.8s ease-in-out;
+            perspective: 800px; /* Add perspective for 3D feel */
+            background-image: radial-gradient(circle at 20% 80%, rgba(60, 40, 20, 0.5) 0%, transparent 40%),
+                              radial-gradient(circle at 80% 75%, rgba(60, 40, 20, 0.4) 0%, transparent 35%);
+        }
+
+        /* --- Lighting Effect --- */
+        #sandbox.lit {
+            background-color: #8b6b4a; /* Lighter background when lit */
+            /* Simulate torchlight with radial gradients */
+            background-image: radial-gradient(circle at 20% 80%, rgba(255, 180, 80, 0.6) 0%, transparent 40%),
+                              radial-gradient(circle at 80% 75%, rgba(255, 190, 90, 0.5) 0%, transparent 35%),
+                              radial-gradient(circle at 50% 50%, rgba(255, 200, 100, 0.1) 0%, transparent 60%);
+        }
+
+        /* --- TNT Block --- */
+        .tnt {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: #a00; /* Base red */
+            /* Using gradients and borders to simulate TNT texture */
+            background-image:
+                linear-gradient(90deg, #fff 20%, transparent 20%, transparent 80%, #fff 80%), /* White side bands */
+                linear-gradient(180deg, #444 30%, transparent 30%, transparent 70%, #444 70%), /* Top/Bottom dark bands */
+                linear-gradient(90deg, #c00 0%, #a00 50%, #c00 100%); /* Main red gradient */
+            background-size: 100% 100%, 100% 100%, 100% 100%;
+            border: 1px solid #333;
+            box-sizing: border-box;
+            /* --- Pseudo 3D & Lighting --- */
+            box-shadow:
+                /* Base shadow */
+                5px 5px 15px rgba(0, 0, 0, 0.6),
+                /* Top/Left highlight (subtle) */
+                inset 2px 2px 3px rgba(255, 255, 255, 0.1),
+                /* Bottom/Right shading */
+                inset -2px -2px 5px rgba(0, 0, 0, 0.3);
+            /* Slight rotation for 3D feel */
+            transform: rotateX(10deg) rotateY(-5deg);
+            transform-style: preserve-3d; /* Needed for children if we added faces */
+            animation: fall 4s linear forwards; /* Let it fall */
+            will-change: top, transform, opacity; /* Performance hint */
+            transition: box-shadow 0.8s ease-in-out; /* Smooth shadow transition with light */
+        }
+
+        /* Adjust TNT shadow when lit */
+        #sandbox.lit .tnt {
+            box-shadow:
+                /* Brighter base shadow */
+                5px 5px 15px rgba(40, 20, 0, 0.7),
+                /* Stronger Top/Left highlight */
+                inset 2px 2px 4px rgba(255, 220, 180, 0.3),
+                 /* Lighter Bottom/Right shading */
+                inset -2px -2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+
+        @keyframes fall {
+            from {
+                top: -60px; /* Start above screen */
+            }
+            to {
+                top: 100vh; /* Fall off below screen */
+            }
+        }
+
+        /* --- Explosion Particle --- */
+        .particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: orange; /* Base color, will be randomized */
+            border-radius: 50%;
+            pointer-events: none; /* Don't interfere with clicks */
+            opacity: 1;
+            transform-origin: center center;
+            will-change: transform, opacity; /* Performance hint */
+            box-shadow: 0 0 10px 2px rgba(255, 165, 0, 0.7); /* Glow */
+            animation: explode-particle 0.6s ease-out forwards;
+        }
+
+        /* Keyframes need to be defined, but actual transform is set via JS */
+        @keyframes explode-particle {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                 opacity: 0.8;
+            }
+            100% {
+                transform: scale(0); /* JS will add translate */
+                opacity: 0;
+            }
+        }
+
+         /* --- Explosion Flash --- */
+        .flash {
+            position: absolute;
+            width: 150px; /* Size of flash */
+            height: 150px;
+            background: radial-gradient(circle, rgba(255, 255, 200, 0.9) 0%, rgba(255, 180, 0, 0.5) 50%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1); /* Center on explosion point */
+            animation: flash-fade 0.3s ease-out forwards;
+             will-change: transform, opacity;
+        }
+
+        @keyframes flash-fade {
+            from {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1.5); /* Slight expansion */
+            }
+        }
+
+
+        /* --- Controls --- */
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px 25px;
+            border-radius: 8px;
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        .controls button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #c00;
+            color: white;
+            border: 1px solid #f55;
+            border-radius: 5px;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .controls button:hover {
+            background-color: #e00;
+        }
+        .controls button:active {
+             background-color: #900;
+             transform: scale(0.95);
+        }
+
+        .controls button#lightBtn {
+             background-color: #ffa500; /* Orange for light button */
+             border-color: #ffc966;
+        }
+        .controls button#lightBtn:hover {
+             background-color: #ffc04d;
+        }
+         .controls button#lightBtn:active {
+             background-color: #cc8400;
+         }
+
+    </style>
+</head>
+<body>
+
+    <div id="sandbox">
+        <!-- TNT blocks will be added here by JS -->
+    </div>
+
+    <div class="controls">
+        <button id="spawnBtn">Spawn TNT</button>
+        <button id="explodeBtn">Explode All TNT</button>
+        <button id="lightBtn">Toggle Light</button>
+    </div>
+
+    <script>
+        const sandbox = document.getElementById('sandbox');
+        const spawnBtn = document.getElementById('spawnBtn');
+        const explodeBtn = document.getElementById('explodeBtn');
+        const lightBtn = document.getElementById('lightBtn');
+
+        const TNT_WIDTH = 50; // Must match CSS
+        const TNT_HEIGHT = 50; // Must match CSS
+        const PARTICLE_COUNT = 35; // Number of particles per explosion
+        const PARTICLE_SPREAD = 150; // Max distance particles travel
+
+        function spawnTNT() {
+            const tnt = document.createElement('div');
+            tnt.classList.add('tnt');
+
+            // Calculate random horizontal position
+            const maxLeft = sandbox.clientWidth - TNT_WIDTH;
+            const randomLeft = Math.random() * maxLeft;
+            tnt.style.left = `${randomLeft}px`;
+            // Initial top position is set by CSS animation 'fall' starting point
+
+            // Add listener to remove TNT if it falls off screen *without* exploding
+            tnt.addEventListener('animationend', () => {
+                // Only remove if it's still in the DOM (wasn't exploded)
+                 if (tnt.parentNode === sandbox) {
+                    tnt.remove();
+                 }
+            }, { once: true }); // Automatically remove listener after it fires once
+
+            sandbox.appendChild(tnt);
+        }
+
+        function explodeAllTNT() {
+            const tntBlocks = sandbox.querySelectorAll('.tnt');
+            tntBlocks.forEach(tnt => {
+                const rect = tnt.getBoundingClientRect();
+                // Calculate center position relative to the sandbox
+                const explosionX = rect.left + rect.width / 2 - sandbox.getBoundingClientRect().left;
+                const explosionY = rect.top + rect.height / 2 - sandbox.getBoundingClientRect().top;
+
+                createExplosion(explosionX, explosionY);
+                tnt.remove(); // Remove the TNT block immediately
+            });
+        }
+
+        function createExplosion(x, y) {
+            // Create Flash
+            const flash = document.createElement('div');
+            flash.classList.add('flash');
+            flash.style.left = `${x}px`;
+            flash.style.top = `${y}px`;
+            sandbox.appendChild(flash);
+            flash.addEventListener('animationend', () => flash.remove(), { once: true });
+
+
+            // Create Particles
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                particle.style.left = `${x}px`;
+                particle.style.top = `${y}px`;
+
+                // Randomize particle appearance and trajectory
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * PARTICLE_SPREAD + 20; // Min distance 20
+                const duration = Math.random() * 0.4 + 0.4; // 0.4s to 0.8s duration
+                const delay = Math.random() * 0.1; // Slight delay for staggering
+
+                const translateX = Math.cos(angle) * distance;
+                const translateY = Math.sin(angle) * distance;
+
+                // Random color (oranges, yellows, grays, reds)
+                const colors = ['#FFA500', '#FF8C00', '#FFD700', '#DC143C', '#808080', '#A9A9A9', '#FF6347'];
+                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                 // Adjust glow color slightly based on particle color
+                 particle.style.boxShadow = `0 0 ${Math.random() * 8 + 4}px 2px ${particle.style.background}b3`; // Add some transparency
+
+                // Apply animation properties
+                particle.style.animationDuration = `${duration}s`;
+                particle.style.animationDelay = `${delay}s`;
+
+                // We need to set the final transform state *inline* because it's dynamic
+                // We use a dummy animation name just to trigger animationend
+                // The keyframes define the scale/opacity fade, JS sets the translation
+                // We have to wrap this in a requestAnimationFrame or timeout to ensure styles apply before animation starts
+                requestAnimationFrame(() => {
+                    particle.style.transform = `translate(${translateX}px, ${translateY}px) scale(0)`;
+                });
+
+
+                // Remove particle after animation
+                particle.addEventListener('animationend', () => {
+                    particle.remove();
+                }, { once: true });
+
+                sandbox.appendChild(particle);
+            }
+        }
+
+        function toggleLight() {
+            sandbox.classList.toggle('lit');
+            const isLit = sandbox.classList.contains('lit');
+            lightBtn.textContent = isLit ? 'Turn Light Off' : 'Turn Light On';
+             // Optional: change button style too
+            lightBtn.style.backgroundColor = isLit ? '#ff8c00' : '#ffa500';
+            lightBtn.style.borderColor = isLit ? '#ffb366' : '#ffc966';
+        }
+
+        // --- Event Listeners ---
+        spawnBtn.addEventListener('click', spawnTNT);
+        explodeBtn.addEventListener('click', explodeAllTNT);
+        lightBtn.addEventListener('click', toggleLight);
+
+        // Initial setup
+        lightBtn.textContent = 'Turn Light On'; // Set initial text
+
+    </script>
+
+</body>
+</html>
