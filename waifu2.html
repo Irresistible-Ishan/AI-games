@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Waifu Viewer</title>
+    <style>
+        /* Basic Reset & Body Setup */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden; /* Prevent scrollbars on the body */
+            font-family: sans-serif;
+        }
+
+        body {
+            /* Image Background Styling */
+            background-color: #282c34; /* Default beautiful background color */
+            background-position: center center;
+            background-repeat: no-repeat;
+            background-size: contain; /* Fit entire image without cropping */
+            transition: background-image 0.4s ease-in-out;
+
+            /* Flex setup to help position controls */
+            display: flex;
+            justify-content: center; /* Center controls horizontally */
+            align-items: flex-end; /* Align controls to the bottom */
+            padding-bottom: 20px; /* Space from bottom edge */
+            position: relative; /* Needed for absolute positioning of warning */
+        }
+
+        /* Controls Container */
+        #controls {
+            background-color: rgba(0, 0, 0, 0.75);
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap; /* Allow controls to wrap */
+            justify-content: center;
+            max-width: 95%; /* Slightly wider for checkbox */
+            z-index: 10;
+        }
+
+        /* NSFW Toggle Styling */
+        .nsfw-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #f0a0a0; /* Light red for emphasis */
+            font-size: 0.9rem;
+            padding: 5px 0; /* Add some vertical padding */
+            cursor: pointer; /* Make the whole area clickable */
+            white-space: nowrap; /* Prevent wrapping */
+        }
+        .nsfw-toggle-container input[type="checkbox"] {
+           margin-right: 5px;
+           cursor: pointer;
+           transform: scale(1.1); /* Make checkbox slightly larger */
+        }
+        .nsfw-toggle-container label {
+            cursor: pointer; /* Ensure label is clickable */
+        }
+
+
+        /* Buttons and Select Styling */
+        button, select {
+            padding: 8px 12px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            background-color: #4a5568; /* Tailwind gray-600 */
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        button:hover, select:hover {
+            background-color: #2d3748; /* Tailwind gray-800 */
+        }
+
+        button:disabled, select:disabled {
+            background-color: #718096; /* Tailwind gray-500 */
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        /* Loading Indicator */
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            display: none; /* Hidden by default */
+            z-index: 20;
+        }
+
+        /* Basic Responsive Adjustments */
+        @media (max-width: 700px) { /* Adjusted breakpoint */
+             #controls {
+                 flex-direction: column; /* Stack controls vertically */
+                 align-items: stretch; /* Make controls fill width */
+                 max-width: 80%;
+             }
+             button, select, .nsfw-toggle-container {
+                 width: 100%;
+                 text-align: center;
+                 justify-content: center; /* Center checkbox/label */
+             }
+             .nsfw-toggle-container {
+                 order: -1; /* Move NSFW toggle to the top on mobile */
+                 margin-bottom: 5px;
+             }
+        }
+
+         @media (max-width: 400px) {
+             #controls {
+                 max-width: 90%;
+             }
+             button, select {
+                 font-size: 0.9rem;
+                 padding: 6px 10px;
+             }
+             .nsfw-toggle-container {
+                 font-size: 0.8rem;
+             }
+         }
+
+    </style>
+</head>
+<body>
+
+    <!-- Controls -->
+    <div id="controls">
+        <!-- NSFW Toggle -->
+        <div class="nsfw-toggle-container">
+            <input type="checkbox" id="nsfw-toggle" name="nsfw-toggle">
+            <label for="nsfw-toggle">Enable NSFW (18+ ONLY)</label>
+        </div>
+        <select id="tag-selector" title="Select Image Category"></select>
+        <button id="fetch-button">New Image</button>
+        <button id="download-button" disabled title="Download Current Image">Download</button>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading">Loading...</div>
+
+    <script>
+        const bodyElement = document.body;
+        const tagSelector = document.getElementById('tag-selector');
+        const fetchButton = document.getElementById('fetch-button');
+        const downloadButton = document.getElementById('download-button');
+        const loadingIndicator = document.getElementById('loading');
+        const nsfwToggle = document.getElementById('nsfw-toggle');
+
+        // Tag lists from waifu.pics API documentation (as of late 2023/early 2024)
+        const sfwTags = [
+            'waifu', 'neko', 'shinobu', 'megumin', 'bully', 'cuddle', 'cry', 'hug',
+            'awoo', 'kiss', 'lick', 'pat', 'smug', 'bonk', 'yeet', 'blush', 'smile',
+            'wave', 'highfive', 'handhold', 'nom', 'bite', 'glomp', 'slap', 'kill',
+            'kick', 'happy', 'wink', 'poke', 'dance', 'cringe'
+        ];
+        const nsfwTags = ['waifu', 'neko', 'trap', 'blowjob']; // Note: Fewer official NSFW tags
+
+        let currentImageUrl = null;
+        let currentImageFilename = 'waifu.jpg';
+        let isNsfwMode = false; // Track current mode
+
+        // --- Populate Tag Selector ---
+        function populateTags() {
+            const tagsToUse = isNsfwMode ? nsfwTags : sfwTags;
+            const currentVal = tagSelector.value; // Store current selection attempt
+
+            tagSelector.innerHTML = ''; // Clear existing options
+
+            tagsToUse.forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                // Capitalize first letter for display
+                option.textContent = tag.charAt(0).toUpperCase() + tag.slice(1);
+                tagSelector.appendChild(option);
+            });
+
+            // Try to restore previous selection if it exists in the new list, else set default
+            if (tagsToUse.includes(currentVal)) {
+                tagSelector.value = currentVal;
+            } else {
+                 // Set default: 'waifu' for SFW, 'waifu' or 'neko' for NSFW if available
+                 if (isNsfwMode && tagsToUse.includes('waifu')) {
+                     tagSelector.value = 'waifu';
+                 } else if (isNsfwMode && tagsToUse.includes('neko')) {
+                     tagSelector.value = 'neko'; // Fallback if nsfw:waifu not present
+                 } else if (!isNsfwMode && tagsToUse.includes('waifu')) {
+                     tagSelector.value = 'waifu'; // SFW default
+                 } else if (tagsToUse.length > 0) {
+                     tagSelector.value = tagsToUse[0]; // Absolute fallback
+                 }
+            }
+
+            // Update fetch button text
+            fetchButton.textContent = `New ${isNsfwMode ? 'NSFW' : 'Waifu'}`;
+        }
+
+        // --- Loading State ---
+        function setLoading(isLoading) {
+            if (isLoading) {
+                loadingIndicator.style.display = 'block';
+                fetchButton.disabled = true;
+                downloadButton.disabled = true; // Keep download disabled during fetch
+                tagSelector.disabled = true;
+                nsfwToggle.disabled = true; // Disable toggle during fetch
+            } else {
+                loadingIndicator.style.display = 'none';
+                fetchButton.disabled = false;
+                tagSelector.disabled = false;
+                nsfwToggle.disabled = false; // Re-enable toggle
+                 // Only enable download if there's a valid URL
+                downloadButton.disabled = !currentImageUrl;
+            }
+        }
+
+        // --- Fetch Image ---
+        async function fetchImage() {
+            const selectedTag = tagSelector.value;
+            if (!selectedTag) {
+                console.warn("No tag selected, cannot fetch.");
+                // Optionally provide user feedback here if needed
+                setLoading(false); // Ensure controls are re-enabled if stuck
+                return;
+            }
+
+            setLoading(true);
+            currentImageUrl = null; // Reset current URL
+
+            const endpointType = isNsfwMode ? 'nsfw' : 'sfw';
+
+            try {
+                const apiUrl = `https://api.waifu.pics/${endpointType}/${selectedTag}`;
+                console.log("Fetching from:", apiUrl); // Log API URL for debugging
+                const response = await fetch(apiUrl);
+
+                if (!response.ok) {
+                     // Handle specific API errors if known (e.g., 404 for invalid tag)
+                     if(response.status === 404) {
+                         throw new Error(`Tag '${selectedTag}' not found in ${endpointType.toUpperCase()} category.`);
+                     }
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data && data.url) {
+                    currentImageUrl = data.url;
+                    // Preload image
+                    const img = new Image();
+                    img.onload = () => {
+                        bodyElement.style.backgroundImage = `url('${currentImageUrl}')`;
+                        // Create filename
+                        try {
+                            const urlParts = currentImageUrl.split('/');
+                            const filenameFromUrl = urlParts[urlParts.length - 1] || '';
+                            currentImageFilename = `${endpointType}-${selectedTag}-${filenameFromUrl || Date.now()}.jpg`;
+                        } catch (e) {
+                            currentImageFilename = `${endpointType}-${selectedTag}-${Date.now()}.jpg`;
+                        }
+                        setLoading(false); // Enable buttons AFTER image is loaded
+                    };
+                    img.onerror = () => {
+                         console.error("Error loading image data from URL:", currentImageUrl);
+                         alert("Failed to load the image content after fetching URL.");
+                         currentImageUrl = null; // Reset on image load error
+                         bodyElement.style.backgroundImage = 'none'; // Clear background
+                         setLoading(false);
+                    };
+                    img.src = currentImageUrl;
+
+                } else {
+                    throw new Error("Invalid API response structure (missing 'url').");
+                }
+
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                alert(`Failed to fetch image. Please try again or select a different tag.\nError: ${error.message}`);
+                currentImageUrl = null;
+                bodyElement.style.backgroundImage = 'none'; // Clear background on error
+                setLoading(false); // Re-enable controls on error
+            }
+        }
+
+        // --- Download Image ---
+        async function downloadImage() {
+            if (!currentImageUrl) {
+                alert("No image loaded to download.");
+                return;
+            }
+
+            const originalButtonText = downloadButton.textContent;
+            downloadButton.textContent = 'Downloading...';
+            downloadButton.disabled = true;
+
+            try {
+                // Use fetch to get blob
+                const response = await fetch(currentImageUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch image for download. Status: ${response.status}`);
+                }
+                const blob = await response.blob();
+
+                // Create link and trigger download
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = currentImageFilename || 'downloaded-image.jpg'; // Use generated filename
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+
+            } catch (error) {
+                console.error("Download Error:", error);
+                alert(`Failed to download image.\nError: ${error.message}\n\nYou might be able to right-click the background and 'Save Image As...'`);
+            } finally {
+                downloadButton.textContent = originalButtonText;
+                downloadButton.disabled = !currentImageUrl; // Re-enable only if image is still valid
+            }
+        }
+
+        // --- Handle NSFW Toggle Change ---
+        function handleNsfwToggle() {
+            isNsfwMode = nsfwToggle.checked;
+            console.log("NSFW Mode:", isNsfwMode);
+            populateTags(); // Update the dropdown list
+            fetchImage(); // Fetch a new image for the selected mode immediately
+        }
+
+        // --- Event Listeners ---
+        fetchButton.addEventListener('click', fetchImage);
+        downloadButton.addEventListener('click', downloadImage);
+        nsfwToggle.addEventListener('change', handleNsfwToggle);
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            isNsfwMode = nsfwToggle.checked; // Initialize based on checkbox default (unchecked)
+            populateTags(); // Populate SFW tags initially
+            fetchImage(); // Fetch initial SFW image on load
+        });
+
+    </script>
+
+</body>
+</html>

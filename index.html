@@ -186,11 +186,167 @@
          .controls button#lightBtn:active {
              background-color: #cc8400;
          }
+/* Basic Reset & Body Style (Optional but Recommended) */
 
+
+/* --- Checkbox Hack --- */
+.menu-toggle-checkbox {
+    display: none; /* Hide the actual checkbox */
+}
+
+/* --- Toggle Button (Label) --- */
+.menu-toggle-label {
+    position: fixed; /* Keep button visible */
+    top: 15px;
+    left: 15px;
+    z-index: 1100; /* Must be higher than the menu */
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    background-color: #3498db;
+    color: white;
+    font-size: 24px;
+    line-height: 40px; /* Center the icon vertically */
+    text-align: center;
+    border-radius: 5px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: background-color 0.3s ease;
+}
+
+.menu-toggle-label:hover {
+    background-color: #2980b9;
+}
+
+/* --- Side Menu Styles (Pop-up Version) --- */
+.side-menu-popup {
+    position: fixed; /* Fixed position - stays in place */
+    left: 0;
+    top: 0;
+    width: 250px;    /* Width of the menu */
+    height: 100vh;   /* Full viewport height */
+    background-color: #2c3e50; /* Dark background */
+    padding-top: 60px; /* Space for the toggle button visually */
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3); /* Stronger shadow */
+    z-index: 1000;   /* Below the toggle button, above content */
+    overflow-y: auto; /* Add scroll if content is too long */
+
+    /* --- Initial Hidden State --- */
+    transform: translateX(-100%);
+    transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1); /* Smooth slide effect */
+}
+
+/* --- Show Menu When Checkbox is Checked --- */
+.menu-toggle-checkbox:checked ~ .side-menu-popup {
+    transform: translateX(0); /* Slide menu into view */
+}
+
+/* --- Make content unscrollable when menu is open (optional) --- */
+/* .menu-toggle-checkbox:checked ~ .main-content {
+    overflow: hidden;
+} */
+/* Note: This might affect main content layout if it relies on scroll */
+
+/* Optional Header Styling */
+.menu-header {
+    padding: 10px 20px;
+    margin-bottom: 15px;
+    text-align: center;
+    border-bottom: 1px solid #3b5168;
+}
+
+.menu-header h2 {
+    margin: 0;
+    color: #ecf0f1;
+    font-size: 1.2em;
+}
+
+/* Menu List Styling */
+.side-menu-popup ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Menu Link Styling */
+.side-menu-popup ul li a,
+.side-menu-popup ul li .close-menu { /* Style close label like a link */
+    display: block;
+    padding: 12px 20px;
+    color: #bdc3c7;
+    text-decoration: none;
+    font-size: 1em;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    border-left: 3px solid transparent;
+    cursor: pointer; /* Make close label look clickable */
+}
+
+/* Menu Link Hover Effect */
+.side-menu-popup ul li a:hover,
+.side-menu-popup ul li .close-menu:hover {
+    background-color: #34495e;
+    color: #ffffff;
+    border-left-color: #3498db;
+}
+
+/* Style for the close menu item */
+.side-menu-popup ul li .close-menu {
+    margin-top: 20px; /* Add space above close */
+    color: #e74c3c; /* Red color for close */
+    font-weight: bold;
+}
+.side-menu-popup ul li .close-menu:hover {
+    background-color: #e74c3c; /* Red background on hover */
+    color: #ffffff;
+    border-left-color: #c0392b;
+}
+
+
+/* --- Main Content Area Styling --- */
+/* IMPORTANT: NO margin-left needed */
+.main-content {
+    padding: 30px;
+    /* The content flows naturally behind the fixed menu */
+    transition: filter 0.4s ease; /* Optional: Dim content when menu is open */
+}
+
+/* Optional: Dim content slightly when menu is open */
+/* .menu-toggle-checkbox:checked ~ .main-content {
+    filter: brightness(0.7);
+} */
+
+
+/* --- Optional: Responsive Adjustments --- */
+@media (max-width: 768px) {
+    .side-menu-popup {
+        width: 220px; /* Adjust width as needed */
+    }
+    .menu-toggle-label {
+        /* Optionally adjust button size/position */
+    }
+}
     </style>
 </head>
 <body>
+<input type="checkbox" id="menu-toggle-cb" class="menu-toggle-checkbox">
 
+    <!-- Label for the Checkbox - This is the visible "button" -->
+    <label for="menu-toggle-cb" class="menu-toggle-label">
+        ☰ <!-- Hamburger icon -->
+    </label>
+
+    <!-- The Side Menu Navigation -->
+    <nav class="side-menu-popup">
+        <div class="menu-header">
+            <h2>PORTAL</h2>
+        </div>
+        <ul>
+            <li><a href="https://code7x.netlify.app/">CODE7X</a></li>
+            <li><a href="waifu2.html">waifu fetcher</a></li>
+
+             <li><label for="menu-toggle-cb" class="close-menu">Close Menu</label></li>
+        </ul>
+    </nav>
     <div id="sandbox">
         <!-- TNT blocks will be added here by JS -->
     </div>
