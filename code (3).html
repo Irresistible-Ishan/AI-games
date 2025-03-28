@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Midnight Chronicle</title>
+    
+    <!-- p5.js Library via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    
+    <style>
+        /* --- CSS Reset & Basic Setup --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: #1a1a1a; /* Deep charcoal background */
+            color: #d8d8d8; /* Off-white text for readability */
+            font-family: 'Georgia', 'Times New Roman', serif; /* Classic serif font */
+            font-size: 18px;
+            line-height: 1.7;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            position: relative; /* Needed for pseudo-element overlay */
+        }
+
+        /* --- Grunge/Decay Overlay --- */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Subtle grunge texture - replace with your own preferred texture URL */
+            /* Example using a simple noise pattern generated with CSS gradients */
+            background-image: linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+            background-size: 3px 3px; /* Size of the pattern */
+            opacity: 0.15; /* Very subtle */
+            z-index: -1; /* Behind content, but above p5 canvas */
+            pointer-events: none; /* Allow clicks through */
+        }
+
+
+        /* --- p5.js Canvas Container --- */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2; /* Furthest back */
+            pointer-events: none; /* Allow clicks through */
+        }
+
+        /* --- Main Book Content Area --- */
+        #book-content {
+            max-width: 850px; /* Readable line width */
+            margin: 40px auto; /* Center the content with top/bottom margin */
+            padding: 60px 80px; /* Generous padding like book margins */
+            background-color: #252525; /* Slightly lighter dark for the 'page' */
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.7); /* Deep shadow for depth */
+            border: 1px solid #404040; /* Subtle border */
+            min-height: calc(100vh - 80px); /* Ensure it takes at least screen height */
+            position: relative; /* For stacking context if needed later */
+            z-index: 1; /* Ensure content is above background elements */
+        }
+
+        /* --- Typography & Content Styling --- */
+        h1, h2, h3 {
+            font-family: 'Garamond', 'Georgia', serif; /* Slightly more ornate serif */
+            color: #c5b358; /* Antique gold color for royalty */
+            margin-bottom: 1.5rem;
+            margin-top: 2rem;
+            text-align: center;
+            line-height: 1.3;
+            font-weight: normal; /* Less harsh than bold */
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.4); /* Subtle text shadow */
+        }
+
+        h1 {
+            font-size: 2.8em;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid #a88f32; /* Gold underline */
+            padding-bottom: 0.5em;
+        }
+
+        h2 {
+            font-size: 2em;
+            font-style: italic;
+        }
+
+        h3 {
+            font-size: 1.5em;
+        }
+
+        p {
+            margin-bottom: 1.5em;
+            text-align: justify; /* Classic book alignment */
+            hyphens: auto; /* Improve justification */
+        }
+
+        /* First letter drop cap - classic book style */
+        p:first-of-type::first-letter {
+            color: #c5b358;
+            float: left;
+            font-size: 4em; /* Adjust size as needed */
+            line-height: 0.8;
+            padding-right: 8px;
+            padding-top: 4px;
+            margin-bottom: -5px; /* Fine-tune alignment */
+            font-family: 'Garamond', serif; /* Use a more decorative font if desired */
+        }
+
+
+        /* --- Chapter Separator --- */
+        hr {
+            border: 0;
+            height: 1px;
+            background: #c5b358; /* Gold line */
+            background-image: linear-gradient(to right, rgba(37,37,37,0), #a88f32, rgba(37,37,37,0)); /* Faded gold line */
+            margin: 3em auto; /* Space around the separator */
+            width: 70%;
+        }
+
+        /* --- Links (if any) --- */
+        a {
+            color: #d8b860; /* Lighter gold for links */
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+        /* --- Scrollbar Styling (Optional, Webkit browsers) --- */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #444;
+            border-radius: 4px;
+            border: 1px solid #1a1a1a;
+        }
+         ::-webkit-scrollbar-thumb:hover {
+            background-color: #555;
+         }
+
+    </style>
+</head>
+<body>
+
+    <!-- Container for the p5.js background sketch -->
+    <div id="canvas-container"></div>
+
+    <!-- Main content area styled like a book -->
+    <main id="book-content">
+
+        <!-- === START YOUR NOVEL CONTENT HERE === -->
+
+        <h1>The Obsidian Codex</h1>
+
+        <h2>Chapter I: Whispers in the Dust</h2>
+
+        <p>
+            The wind howled a mournful dirge across the skeletal remains of what was once London. Centuries had passed since the Pale Blight turned the sky to ash and the living to… something else. Now, only crumbling monuments and the ceaseless rustle of desiccated leaves bore witness to humanity's faded glory. Elias Thorne, swathed in layers of scavenged leather and thick wool, pulled his mask tighter against the acrid air. His gloved fingers traced the eroded inscription on a fallen statue – a forgotten king, perhaps, or a celebrated poet. It mattered little now. History was a luxury the survivors could scarcely afford.
+        </p>
+        <p>
+            His quest, however, was steeped in the arcane remnants of the past. Deep within the bowels of the British Library, now a hazardous labyrinth of collapsed shelves and spectral silence, lay the rumored Obsidian Codex. Legends whispered it held secrets not just of the Blight's origin, but perhaps, of its reversal. Or, as some darker tales suggested, a power far more terrible. Elias carried the weight of dwindling hope for the small enclave hidden beneath the old city – New Camelot, they called it, a bastion of fragile light in an overwhelming darkness.
+        </p>
+         <p>
+            Nature, twisted and resilient, had reclaimed the city. Gnarled, phosphorescent fungi pulsed with faint light in the perpetual twilight, casting eerie shadows. Ivy, thick as a man's arm and unnaturally dark, choked the baroque facades of abandoned ministries. It was beautiful, in a terrifying, post-human way. A constant reminder that the world moved on, even if humanity hadn't. The creatures that stalked these ruins – the Shamblers, the Shriekers, the silent Watchers – were testament to that grim evolution.
+        </p>
+
+        <hr>
+
+        <h2>Chapter II: The Sunken Library</h2>
+
+        <p>
+            Reaching the library's entrance required navigating the treacherous remains of the Underground, now flooded and patrolled by things best left undisturbed. Elias moved with the practiced silence of a veteran scavenger, his modified crossbow held ready. The air grew heavier, colder, thick with the scent of decay and stagnant water as he descended. The grand entrance hall of the library was a cavern of shadows, dominated by a collapsed dome that allowed slivers of the perpetually grey sky to pierce the gloom.
+        </p>
+        <p>
+            Dust motes, thick as snowfall, danced in these fleeting beams – or perhaps they weren't dust at all. Elias had learned not to trust his eyes in the Blighted zones. He consulted the brittle map, a relic passed down through generations, its markings faded but still decipherable. The path to the Oriental Collections, where the Codex was said to reside, lay through the flooded lower levels. Taking a deep breath, he ignited the chemical light-stick attached to his shoulder, casting a harsh, greenish glow that barely pushed back the oppressive darkness. The real challenge was about to begin.
+        </p>
+        <p>
+            He waded through knee-deep, chillingly cold water, the silence broken only by the sloshing of his movements and the distant, unsettling drips echoing from unseen chambers. Rotting books floated like bloated corpses, their pages fused into indecipherable pulp. Occasionally, a skeletal hand, preserved strangely by the chemical-laden water, would brush against his leg, a grim reminder of the library's last patrons. The path was treacherous, littered with submerged debris and the constant threat of ambush from the depths.
+        </p>
+
+        <!-- Add more chapters and paragraphs as needed -->
+        <!-- Example: -->
+        <!-- 
+        <hr>
+        <h2>Chapter III: Title</h2>
+        <p>More text here...</p>
+        <p>Even more text...</p> 
+        -->
+
+        <!-- === END YOUR NOVEL CONTENT HERE === -->
+
+    </main>
+
+    <script>
+        // --- p5.js Sketch for Subtle Background Animation ---
+
+        let particles = [];
+        const numParticles = 100; // Adjust density of particles
+
+        function setup() {
+            let canvas = createCanvas(windowWidth, windowHeight);
+            canvas.parent('canvas-container'); // Attach canvas to the container div
+            
+            for (let i = 0; i < numParticles; i++) {
+                particles.push(new Particle());
+            }
+            noStroke();
+        }
+
+        function draw() {
+            // Very dark, slightly transparent background to allow layering
+            background(15, 15, 15, 200); 
+            
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].display();
+                if (particles[i].isOffscreen()) {
+                    particles.splice(i, 1); // Remove particle if offscreen
+                    particles.push(new Particle()); // Add a new one
+                }
+            }
+        }
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+            // Optional: Could redistribute particles on resize, but replacing them as they go offscreen works too.
+        }
+
+        // --- Particle Class ---
+        class Particle {
+            constructor() {
+                // Start particles randomly across the screen
+                this.x = random(width);
+                this.y = random(height);
+                // Slow, slightly varied movement
+                this.vx = random(-0.3, 0.3); 
+                this.vy = random(-0.4, 0.2); // Slightly upward drift on average?
+                this.size = random(1, 4);
+                // Varying opacity for depth effect
+                this.alpha = random(30, 100); 
+                // Color similar to text/accents but very dark/muted
+                this.color = color(80, 70, 40, this.alpha); 
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Subtle interaction maybe? (Optional - can be performance heavy)
+                // let d = dist(this.x, this.y, mouseX, mouseY);
+                // if (d < 50) {
+                //   this.vx += (this.x - mouseX) * 0.001;
+                //   this.vy += (this.y - mouseY) * 0.001;
+                // }
+
+                // Add slight randomness to movement to prevent linearity
+                this.vx += random(-0.02, 0.02);
+                this.vy += random(-0.02, 0.02);
+                
+                // Constrain velocity to prevent them going too fast
+                this.vx = constrain(this.vx, -0.4, 0.4);
+                this.vy = constrain(this.vy, -0.5, 0.3);
+            }
+
+            display() {
+                fill(this.color);
+                ellipse(this.x, this.y, this.size, this.size);
+            }
+
+            isOffscreen() {
+                return (this.x < -this.size || this.x > width + this.size || 
+                        this.y < -this.size || this.y > height + this.size);
+            }
+        }
+        // --- End p5.js Sketch ---
+
+    </script>
+
+</body>
+</html>
